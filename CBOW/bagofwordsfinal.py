@@ -66,8 +66,7 @@ def softmax2(u):
     return y
 
 def softmax(u):
-    u_max = np.max(u)
-    e_u = np.exp(u - u_max)
+    e_u = np.exp(u)
     return e_u / e_u.sum()
 
 
@@ -107,4 +106,5 @@ bag_of_words(diccionario_palabras,words,200,0.01,5,1000)
 
         
     
+
   
