@@ -59,8 +59,7 @@ def softmax2(u):
     return y
 
 def softmax(u):
-    u_max = np.max(u)
-    e_u = np.exp(u - u_max)
+    e_u = np.exp(u)
     return e_u / e_u.sum()
 
 
@@ -156,3 +155,4 @@ def skip_gram_negativos(diccionario_palabras, corpus, neuronas_oculta, n, contex
     return W, W_prima
 
 #skip_gram_negativos(diccionario_palabras, words, 200, 0.1, 5, 1000,5)
+
