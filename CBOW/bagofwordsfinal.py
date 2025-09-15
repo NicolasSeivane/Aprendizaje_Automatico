@@ -73,13 +73,14 @@ def softmax(u):
 
 def bag_of_words(diccionario_palabras, corpus, neuronas_oculta, n, contexto, epocas):
     cardinal_V = len(diccionario_palabras)
+    palabras = len(corpus)
     W = np.random.uniform(0,1,(cardinal_V, neuronas_oculta))
     W_prima = np.random.uniform(0,1,(neuronas_oculta, cardinal_V))
 
     cardinal_corpus = len(corpus)
 
     for i in range(epocas):
-        for indice in range(contexto-1,(cardinal_corpus-contexto)+1):
+        for indice in range(palabras - contexto,(palabras-contexto)+1):
             
             palabra = corpus[indice]
             indice_central = diccionario_palabras[palabra]
@@ -108,3 +109,4 @@ bag_of_words(diccionario_palabras,words,200,0.01,5,1000)
     
 
   
+
