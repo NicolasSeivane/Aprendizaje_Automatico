@@ -72,7 +72,7 @@ def skip_gram(diccionario_palabras, corpus, neuronas_oculta, n, contexto, epocas
     cardinal_corpus = len(corpus)
 
     for i in range(epocas):
-        for indice in range(palabras-contexto,(palabras-contexto)+1):
+        for indice in range(contexto,(palabras-contexto)):
             
             palabra = corpus[indice]
             indice_central = diccionario_palabras[palabra]
@@ -128,7 +128,7 @@ def skip_gram_negativos(diccionario_palabras, corpus, neuronas_oculta, n, contex
     cardinal_corpus = len(corpus)
 
     for i in range(epocas):
-        for indice in range(palabras-contexto,(palabras-contexto)+1):
+        for indice in range(contexto,(palabras-contexto)):
             
             palabra = corpus[indice]
             indice_central = diccionario_palabras[palabra]
@@ -157,5 +157,6 @@ def skip_gram_negativos(diccionario_palabras, corpus, neuronas_oculta, n, contex
     return W, W_prima
 
 #skip_gram_negativos(diccionario_palabras, words, 200, 0.1, 5, 1000,5)
+
 
 
