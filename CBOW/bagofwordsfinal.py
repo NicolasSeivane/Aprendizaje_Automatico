@@ -80,7 +80,7 @@ def bag_of_words(diccionario_palabras, corpus, neuronas_oculta, n, contexto, epo
     cardinal_corpus = len(corpus)
 
     for i in range(epocas):
-        for indice in range(palabras - contexto,(palabras-contexto)+1):
+        for indice in range(contexto, (palabras-contexto)):
             
             palabra = corpus[indice]
             indice_central = diccionario_palabras[palabra]
@@ -109,4 +109,5 @@ bag_of_words(diccionario_palabras,words,200,0.01,5,1000)
     
 
   
+
 
