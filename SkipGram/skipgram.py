@@ -67,11 +67,12 @@ def skip_gram(diccionario_palabras, corpus, neuronas_oculta, n, contexto, epocas
     cardinal_V = len(diccionario_palabras)
     W = np.random.uniform(0,1,(cardinal_V, neuronas_oculta))
     W_prima = np.random.uniform(0,1,(neuronas_oculta, cardinal_V))
+    palabras = len(corpus)
 
     cardinal_corpus = len(corpus)
 
     for i in range(epocas):
-        for indice in range(contexto-1,(cardinal_corpus-contexto)+1):
+        for indice in range(palabras-contexto,(palabras-contexto)+1):
             
             palabra = corpus[indice]
             indice_central = diccionario_palabras[palabra]
@@ -119,6 +120,7 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 def skip_gram_negativos(diccionario_palabras, corpus, neuronas_oculta, n, contexto, epocas,negativos):
+    palabras = len(corpus)
     cardinal_V = len(diccionario_palabras)
     W = np.random.uniform(0,1,(cardinal_V, neuronas_oculta))
     W_prima = np.random.uniform(0,1,(neuronas_oculta, cardinal_V))
@@ -126,7 +128,7 @@ def skip_gram_negativos(diccionario_palabras, corpus, neuronas_oculta, n, contex
     cardinal_corpus = len(corpus)
 
     for i in range(epocas):
-        for indice in range(contexto-1,(cardinal_corpus-contexto)+1):
+        for indice in range(palabras-contexto,(palabras-contexto)+1):
             
             palabra = corpus[indice]
             indice_central = diccionario_palabras[palabra]
@@ -155,4 +157,5 @@ def skip_gram_negativos(diccionario_palabras, corpus, neuronas_oculta, n, contex
     return W, W_prima
 
 #skip_gram_negativos(diccionario_palabras, words, 200, 0.1, 5, 1000,5)
+
 
