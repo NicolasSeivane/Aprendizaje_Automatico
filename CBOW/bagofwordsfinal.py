@@ -71,50 +71,56 @@ def CBOW(diccionario_palabras, corpus, neuronas_oculta, W=None, W_prima=None, co
     return W, W_prima
 
 
-def CBOW_indices(diccionario_palabras, corpus, neuronas_oculta, W=None, W_prima=None, contexto=5, epocas=1000, n=0.01):
+def CBOW_indices(diccionario_palabras, corpus, neuronas_oculta,nombre_pc, W=None, W_prima=None, contexto=5, epocas=1000, n=0.01):
     cardinal_V = len(diccionario_palabras)
 
     if not W_prima and not W:
-        W = np.random.uniform(0,1,(cardinal_V, neuronas_oculta))
-        W_prima = np.random.uniform(0,1,(neuronas_oculta, cardinal_V))
+        W = cp.random.normal(0,1,(cardinal_V, neuronas_oculta))
+        W_prima = cp.random.normal(0,1,(neuronas_oculta, cardinal_V))
+    else:
+        W = cp.asarray(W)
+        W_prima = cp.asarray(W_prima)
+
 
     indices = [i for i in range(contexto,(len(corpus)-contexto))]
     indices_contexto = [i for i in range(-contexto,0)] + [i for i in range(1,contexto+1)]
-    indices_tuplas = [(i, [i+j for j in indices_contexto]) for i in indices]
+    indices_tuplas = [(diccionario_palabras[corpus[i]], [diccionario_palabras[corpus[i+j]] for j in indices_contexto]) for i in indices]
 
-    for i in range(epocas):
+    for epoca in range(epocas):
 
-        for indice, contexto in indices_tuplas:
+        for i, (indice,contexto)in enumerate(indices_tuplas):
             
-            indice_central = diccionario_palabras[corpus[indice]]
-
-            indices_contexto = [diccionario_palabras[corpus[j]] for j in contexto]
-
-            #h = calcular_exitacion_bag(indices_contexto,W)
-            h = np.mean(W[indices_contexto], axis=0).reshape(-1,1)
+            h = cp.mean(W[contexto], axis=0).reshape(-1,1)
 
             u = W_prima.T@h
 
             y = softmax(u)
 
-            e = y.copy()
+            e = y
 
-            e[indice_central] = y[indice_central] - 1
+            e[indice] -= 1
 
-            W_prima = W_prima -n*(h@e.T)
+            W_prima -= n*(h@e.T)
 
             EH = W_prima@e
 
-            W[indices_contexto] = W[indices_contexto] - n * EH.T / len(indices_contexto)
+            W[contexto] -=n * EH.T / len(contexto)
 
-            if indice % 1000 == 0:
-                print(f"termino palabra: {indice}")
+            if i % 1000 == 0:
+                print(f"termino palabra: {i}, epoca:{epoca}")
   
-        print(f"termino epoca: {i}")
+        print(f"termino epoca: {epoca}")
+        if i % 50 == 0:
+            nombre_archivo = f'pesos_cbow_{nombre_pc}_epoca{epoca}.npz'
+            W1_np = cp.asnumpy(W)
+            W2_np = cp.asnumpy(W_prima)
+            np.savez(nombre_archivo, W1=W1_np, W2=W2_np, eta=n, N=neuronas_oculta, C=contexto)
+            print(f"Pesos e hiperparámetros guardados exitosamente en '{nombre_archivo}'")
     return W, W_prima
 
-CBOW(diccionario_palabras,words,200,0.01,5,1000)
+W1,W2 = CBOW_indices(diccionario_palabras, words, 200,"pc2",contexto=5, epocas=1000, n=0.01)
 
         
     
+
   
