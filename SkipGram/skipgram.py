@@ -62,7 +62,7 @@ def skip_gram(diccionario_palabras, corpus, neuronas_oculta, n, contexto, epocas
 
             EH = W_prima @ EL
 
-            W[indice_central] -= n * EH.T
+            W[indice_central] -= n * EH.T[0]
             print("LLegamos bien carajo")
   
         print(f"termino epoca: {i}")
@@ -104,7 +104,7 @@ def skip_gram_indices(diccionario_palabras, corpus, neuronas_oculta,nombre_pc, n
 
             EH = W_prima @ EL
 
-            W[indice] -= n * EH.T
+            W[indice] -= n * EH.T[0]
             if i % 1000 == 0:
                 print(f"termino palabra: {i}, epoca:{epoca}")
   
@@ -175,7 +175,7 @@ def skip_gram_negativos_indices(diccionario_palabras, corpus,nombre_pc, neuronas
 
             EH = W_prima[:, subconjunto]@EL_sub
 
-            W[indice_central] -= n*EH.T
+            W[indice_central] -= n*EH.T[0]
 
             if i % 1000 == 0:
                 print(f"termino palabra: {i}, epoca:{epoca}")
@@ -277,7 +277,7 @@ def skip_gram_negativos_indices_sinaleatorios(diccionario_palabras, corpus,nombr
 
             EH = W_prima[:, subconjunto]@EL_sub
 
-            W[indice_central] -= n*EH.T
+            W[indice_central] -= n*EH.T[0]
 
             if i % 1000 == 0:
                 print(f"termino palabra: {i}, epoca:{epoca}")
@@ -290,3 +290,4 @@ def skip_gram_negativos_indices_sinaleatorios(diccionario_palabras, corpus,nombr
             np.savez(nombre_archivo, W1=W1_np, W2=W2_np, eta=n, N=neuronas_oculta, C=contexto)
             print(f"Pesos e hiperparámetros guardados exitosamente en '{nombre_archivo}'")
     return W, W_prima
+
