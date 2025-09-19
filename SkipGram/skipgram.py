@@ -1,6 +1,6 @@
-import numpy as np
+#import numpy as np
 import random
-import cupy as cp
+import numpy as cp
 
 diccionario_palabras = {}
 diccionario_onehot = {}
@@ -18,7 +18,7 @@ cardinal_V = len(diccionario_palabras)
 
 for token, idx in list(diccionario_palabras.items()):
 
-    one_hot_vector = np.zeros(cardinal_V)
+    one_hot_vector = cp.zeros(cardinal_V)
     one_hot_vector[idx] = 1
     diccionario_onehot[token] = one_hot_vector
 
@@ -112,115 +112,89 @@ def skip_gram_indices(diccionario_palabras, corpus, neuronas_oculta,nombre_pc, n
 
         if i % 50 == 0:
             nombre_archivo = f'pesos_cbow_{nombre_pc}_epoca{epoca}.npz'
-            W1_np = cp.asnumpy(W)
-            W2_np = cp.asnumpy(W_prima)
-            np.savez(nombre_archivo, W1=W1_np, W2=W2_np, eta=n, N=neuronas_oculta, C=contexto)
+            #W1_np = cp.asnumpy(W)
+            #W2_np = cp.asnumpy(W_prima)
+            cp.savez(nombre_archivo, W1=W, W2=W_prima, eta=n, N=neuronas_oculta, C=len(contexto)/2)
             print(f"Pesos e hiperparámetros guardados exitosamente en '{nombre_archivo}'")
     return W, W_prima
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    return 1 / (1 + cp.exp(-x))
 
-def skip_gram_negativos_indices(diccionario_palabras, corpus,nombre_pc, neuronas_oculta, n, contexto, epocas,negativos, W=None, W_prima=None):
+def skip_gram_negativos_indices(diccionario_palabras, corpus, nombre_pc, neuronas_oculta, n, contexto, epocas, negativos, W=None, W_prima=None):
 
     cardinal_V = len(diccionario_palabras)
     if W is None and W_prima is None:
-
-        W = np.random.uniform(0,1,(cardinal_V, neuronas_oculta))
-        W_prima = np.random.uniform(0,1,(neuronas_oculta, cardinal_V))
-
+        W = cp.random.uniform(0, 1, (cardinal_V, neuronas_oculta))
+        W_prima = cp.random.uniform(0, 1, (neuronas_oculta, cardinal_V))
     else:
         W = cp.asarray(W)
         W_prima = cp.asarray(W_prima)
 
-    indices = [i for i in range(contexto,(len(corpus)-contexto))]
-    indices_contexto = [i for i in range(-contexto,0)] + [i for i in range(1,contexto+1)]
-    vocab_indices = list(range(len(diccionario_palabras)))
+    # Precomputar vocabulario
+    vocab_indices = set(range(cardinal_V))
 
-    indices_tuplas = [
-    (
-        diccionario_palabras[corpus[i]],
-        [
-            diccionario_palabras[corpus[i + j]]  
-            for j in indices_contexto
-        ],
-        random.sample(
-            list(set(vocab_indices) - set([diccionario_palabras[corpus[i + j]] for j in indices_contexto])),
-            k=negativos 
-        )
-    )
-    for i in indices
-]
+    # Preparar los índices del corpus
+    indices = [i for i in range(contexto, len(corpus) - contexto)]
+    indices_contexto_offset = [i for i in range(-contexto, 0)] + [i for i in range(1, contexto + 1)]
 
+    # Construir tuplas de entrenamiento (central, contexto, negativos)
+    indices_tuplas = []
+    for i in indices:
+        indice_central = diccionario_palabras[corpus[i]]
+        contexto_indices = [diccionario_palabras[corpus[i + j]] for j in indices_contexto_offset]
+
+        excluidos = set(contexto_indices + [indice_central])
+        posibles_negativos = list(vocab_indices - excluidos)
+        negativos_elegidos = random.sample(posibles_negativos, min(negativos, len(posibles_negativos)))
+
+        indices_tuplas.append((indice_central, contexto_indices, negativos_elegidos))
+
+    # Entrenamiento
+    print("Inicia entrenamiento")
     for epoca in range(epocas):
+        for i, (indice_central, contexto_indices, negativos_indices) in enumerate(indices_tuplas):
+            h = W[indice_central].reshape(-1, 1)
+            subconjunto = contexto_indices + negativos_indices
 
-        for i, (indice_central,contexto, negativos)in enumerate(indices_tuplas):
-
-            h = W[indice_central].reshape(-1,1)
-
-            subconjunto = indices_contexto + negativos  # lista de índices
-
+            # Propagación
             u_sub = W_prima[:, subconjunto].T @ h
+            y = 1 / (1 + cp.exp(-u_sub))  # sigmoid
 
-            y = sigmoid(u_sub)
-
-            subconjunto_positivos = [subconjunto.index(indice) for indice in indices_contexto if indice in subconjunto]
-
+            # Actualización
+            indices_positivos = [subconjunto.index(idx) for idx in contexto_indices if idx in subconjunto]
             EL_sub = y
+            EL_sub[indices_positivos] -= 1
 
-            EL_sub[subconjunto_positivos] -= 1
-
-
-            W_prima[:, subconjunto] -= n*(h@EL_sub.T)
-
-            EH = W_prima[:, subconjunto]@EL_sub
-
-            W[indice_central] -= n*EH.T[0]
+            W_prima[:, subconjunto] -= n * (h @ EL_sub.T)
+            EH = W_prima[:, subconjunto] @ EL_sub
+            W[indice_central] -= n * EH.T[0]
 
             if i % 1000 == 0:
                 print(f"termino palabra: {i}, epoca:{epoca}")
-  
+
         print(f"termino epoca: {epoca}")
-        if i % 50 == 0:
-            nombre_archivo = f'pesos_cbow_{nombre_pc}_epoca{epoca}.npz'
-            W1_np = cp.asnumpy(W)
-            W2_np = cp.asnumpy(W_prima)
-            np.savez(nombre_archivo, W1=W1_np, W2=W2_np, eta=n, N=neuronas_oculta, C=contexto)
+        if epoca % 50 == 0:
+            nombre_archivo = f'pesos_skipgram_{nombre_pc}_epoca{epoca}_neuronas{neuronas_oculta}.npz'
+            cp.savez(nombre_archivo, W1=W, W2=W_prima, eta=n, N=neuronas_oculta, C=len(contexto)/2)
             print(f"Pesos e hiperparámetros guardados exitosamente en '{nombre_archivo}'")
+
     return W, W_prima
 
 def obtener_negativas_por_contexto(corpus, indice, contexto, num_negativas=5):
+    inicio = max(0, indice - contexto)
+    fin = min(len(corpus), indice + contexto + 1)
 
-    antes_contexto = range(indice - contexto, indice)
-    despues_contexto = range(indice + 1, indice + contexto + 1)
-    
-    palabras_antes = corpus[antes_contexto] if indice - contexto >= 0 else [] # EVITO INDICE 0
-    palabras_despues = corpus[despues_contexto] if indice + contexto < len(corpus) else [] # evito salirme del limite corpus
-    
-    num_negativas_antes = min(num_negativas // 2, len(palabras_antes))
-    num_negativas_despues = min(num_negativas // 2, len(palabras_despues))
+    contexto_palabras = [corpus[i] for i in range(inicio, fin) if i != indice]
 
-    negativas = []
+    # Si hay menos de las que pedimos, se rellena desde los bordes
+    if len(contexto_palabras) < num_negativas:
+        faltan = num_negativas - len(contexto_palabras)
+        # Tomar palabras extra empezando desde los bordes del corpus
+        extra = [corpus[i] for i in range(len(corpus)) if i not in range(inicio, fin)]
+        contexto_palabras.extend(extra[:faltan])
 
-    negativas.extend(palabras_antes[:num_negativas_antes])
-
-    negativas.extend(palabras_despues[:num_negativas_despues])
-
-    if len(negativas) < num_negativas:
-     
-        faltantes = num_negativas - len(negativas)
-
-        if len(palabras_antes) < num_negativas // 2:
-            negativas.extend(palabras_despues[num_negativas_despues:num_negativas_despues + faltantes])
-
-        elif len(palabras_despues) < num_negativas // 2:
-            negativas.extend(palabras_antes[num_negativas_antes:num_negativas_antes + faltantes])
-
-    if len(negativas) < num_negativas:
-        palabras_restantes = [palabra for i, palabra in enumerate(corpus) if i != indice]
-        negativas.extend(random.sample(palabras_restantes, num_negativas - len(negativas)))
-
-    return negativas
+    return [diccionario_palabras[p] for p in contexto_palabras[:num_negativas]]
 
 
 
@@ -231,8 +205,8 @@ def skip_gram_negativos_indices_sinaleatorios(diccionario_palabras, corpus,nombr
     cardinal_V = len(diccionario_palabras)
     if W is None and W_prima is None:
 
-        W = np.random.uniform(0,1,(cardinal_V, neuronas_oculta))
-        W_prima = np.random.uniform(0,1,(neuronas_oculta, cardinal_V))
+        W = cp.random.uniform(0,1,(cardinal_V, neuronas_oculta))
+        W_prima = cp.random.uniform(0,1,(neuronas_oculta, cardinal_V))
 
     else:
         W = cp.asarray(W)
@@ -240,7 +214,6 @@ def skip_gram_negativos_indices_sinaleatorios(diccionario_palabras, corpus,nombr
 
     indices = [i for i in range(contexto,(len(corpus)-contexto))]
     indices_contexto = [i for i in range(-contexto,0)] + [i for i in range(1,contexto+1)]
-    vocab_indices = list(range(len(diccionario_palabras)))
 
     indices_tuplas = [
     (
@@ -256,38 +229,33 @@ def skip_gram_negativos_indices_sinaleatorios(diccionario_palabras, corpus,nombr
 
     for epoca in range(epocas):
 
-        for i, (indice_central,contexto, negativos)in enumerate(indices_tuplas):
+        for i, (indice_central, indices_contexto_local, negativos) in enumerate(indices_tuplas):
+            print("comenzo")
 
             h = W[indice_central].reshape(-1,1)
-
-            subconjunto = indices_contexto + negativos  # lista de índices
-
+            subconjunto = indices_contexto_local + negativos  # usar la variable local correcta
             u_sub = W_prima[:, subconjunto].T @ h
-
             y = sigmoid(u_sub)
-
-            subconjunto_positivos = [subconjunto.index(indice) for indice in indices_contexto if indice in subconjunto]
-
+            subconjunto_positivos = [subconjunto.index(idx) for idx in indices_contexto_local if idx in subconjunto]
             EL_sub = y
-
             EL_sub[subconjunto_positivos] -= 1
-
-
             W_prima[:, subconjunto] -= n*(h@EL_sub.T)
-
             EH = W_prima[:, subconjunto]@EL_sub
+            W[indice_central] -= n*EH.T
 
-            W[indice_central] -= n*EH.T[0]
-
+            print("termino")
             if i % 1000 == 0:
                 print(f"termino palabra: {i}, epoca:{epoca}")
   
         print(f"termino epoca: {epoca}")
         if i % 50 == 0:
             nombre_archivo = f'pesos_cbow_{nombre_pc}_epoca{epoca}.npz'
-            W1_np = cp.asnumpy(W)
-            W2_np = cp.asnumpy(W_prima)
-            np.savez(nombre_archivo, W1=W1_np, W2=W2_np, eta=n, N=neuronas_oculta, C=contexto)
+            #W1_np = cp.asnumpy(W)
+            #W2_np = cp.asnumpy(W_prima)
+            cp.savez(nombre_archivo, W1=W, W2=W_prima, eta=n, N=neuronas_oculta, C=contexto)
             print(f"Pesos e hiperparámetros guardados exitosamente en '{nombre_archivo}'")
     return W, W_prima
 
+skip_gram_negativos_indices(diccionario_palabras, words,"nico_pc", 90, 0.01, 3, 1001,5, W=None, W_prima=None)
+skip_gram_negativos_indices(diccionario_palabras, words,"nico_pc", 40, 0.01, 3, 1001,5, W=None, W_prima=None)
+skip_gram_negativos_indices(diccionario_palabras, words,"nico_pc", 65, 0.01, 3, 1001,5, W=None, W_prima=None)
