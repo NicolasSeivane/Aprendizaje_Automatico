@@ -29,7 +29,7 @@ def softmax(u):
     return e_u / e_u.sum()
 
 def sigmoid(x):
-    return 1 / (1 + cp.exp(-x))
+    return (cp.tanh(x / 2) + 1) / 2
 
 def generar_tuplas(corpus, palabras_a_indice, contexto):
 
@@ -117,5 +117,6 @@ def generar_tuplas_con_negativos_random(corpus, palabras_a_indice, contexto, num
             (palabras_a_indice[corpus[i]],  # target central
             [palabras_a_indice[corpus[i + j]] for j in indices_contexto],  # contexto
             random.sample(vocabulario - set([palabras_a_indice[corpus[i + j]] for j in indices_contexto]), k=num_negativos)))# negativos
+
 
     return indices_tuplas
