@@ -1,5 +1,5 @@
 import numpy as np
-import cupy as cp
+#import cupy as cp
 import random
 
 palabras_a_indice = {}
@@ -8,19 +8,19 @@ diccionario_onehot = {}
 diccionario_onehot_a_palabra = {}
 diccionario_conteo = {}
 
-with open("C:\\Users\\PIA\\Documents\\AprendizajeAutomatico\\Aprendizaje_Automatico-main\\Aprendizaje_Automatico-main\\corpus.txt", "r", encoding="utf-8") as f:
+with open("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\corpus.txt", "r", encoding="utf-8") as f:
     words = f.read().splitlines()
 
 
 
 
 def softmax(u):
-    u_max = cp.max(u)
-    e_u = cp.exp(u - u_max)
+    u_max = np.max(u)
+    e_u = np.exp(u - u_max)
     return (e_u / e_u.sum()),e_u.sum()
 
 def sigmoid(x):
-    return 1 / (1 + cp.exp(-x))
+    return 1 / (1 + np.exp(-x))
 
 def generar_tuplas(corpus, palabras_a_indice, contexto):
 
@@ -60,34 +60,72 @@ def generar_tuplas_nuevo(corpus, palabras_a_indice, contexto):
                 continue 
         else:
             contexto_a_central[contexto_actual] = palabra_central
+        
+        
 
         indices_tuplas.append((palabra_central, list(contexto_actual)))
 
     return indices_tuplas
 
 
+def generar_tuplas_nuevo_negativos(corpus, palabras_a_indice, contexto):
+
+    indices = [i for i in range(contexto,(len(corpus)-contexto))]
+
+    indices_contexto = [i for i in range(-contexto,0)] + [i for i in range(1,contexto+1)]
+
+    indices_tuplas = []
+
+    contexto_a_central = {} 
+
+    for i in indices:
+
+        palabra_central = palabras_a_indice[corpus[i]]
+
+        contexto_actual = tuple(palabras_a_indice[corpus[i+j]] for j in indices_contexto)
+
+        if contexto_actual in contexto_a_central:
+            if contexto_a_central[contexto_actual] != palabra_central:
+                continue 
+        else:
+            contexto_a_central[contexto_actual] = palabra_central
+        
+        negativos = obtener_negativas(corpus, i, contexto, 10)
+        
+
+        indices_tuplas.append((palabra_central, list(contexto_actual),negativos))
+
+    return indices_tuplas
+
 
 def unir_palabras_en_contexto(corpus, palabra_objetivo1, palabra_objetivo2, contexto=1):
+    corpus_modificado = []
+    i = 0
 
-    corpus_modificado = corpus.copy()  
-    
-    for i in range(contexto, len(corpus) - contexto):
+    while i < len(corpus):
+        palabra = corpus[i]
 
-        if corpus[i] == palabra_objetivo1 or corpus[i] == palabra_objetivo2:
+        # Si encontramos una de las palabras objetivo
+        if palabra == palabra_objetivo1 or palabra == palabra_objetivo2:
+            # Miramos dentro del rango del contexto (siguiente palabra incluida)
+            for j in range(1, contexto + 1):
+                if i + j < len(corpus):
+                    siguiente = corpus[i + j]
 
-            inicio = i - contexto
-            fin = i + contexto + 1
-            
-            contexto_palabra = corpus[inicio:fin]
-            
-            if palabra_objetivo1 in contexto_palabra and palabra_objetivo2 in contexto_palabra:
-                # Si ambas están, las unimos en un solo token
-                token_combinado = f"{palabra_objetivo1} {palabra_objetivo2}"
+                    if {palabra, siguiente} == {palabra_objetivo1, palabra_objetivo2}:
+                        # Respetar orden según aparición
+                        token = f"{palabra} {siguiente}"
+                        corpus_modificado.append(token)
+                        i += j + 1  
+                        break
+            else:
                 
-                for j in range(inicio, fin):
-                    if corpus[j] == palabra_objetivo1 or corpus[j] == palabra_objetivo2:
-                        corpus_modificado[j] = token_combinado
-    
+                corpus_modificado.append(palabra)
+                i += 1
+        else:
+            corpus_modificado.append(palabra)
+            i += 1
+
     return corpus_modificado
 
 palabras_a_unir = [
@@ -123,9 +161,9 @@ for token in corpus_modificado:
         index = len(palabras_a_indice)
         palabras_a_indice[token] = index
         indices_a_palabras[index] = token
-        diccionario_conteo[token] = 1 # Initialize count for new token
+        diccionario_conteo[token] = 1 
     else:
-        diccionario_conteo[token] += 1 # Increment count for existing token
+        diccionario_conteo[token] += 1 
 
 
 cardinal_V = len(palabras_a_indice)
