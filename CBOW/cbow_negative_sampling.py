@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from auxiliares_cbow import sigmoid, palabras_a_indice,generar_tuplas_nuevo_negativos,corpus_modificado, cargar_modelo_completo
+from auxiliares_cbow import sigmoid, palabras_a_indice,generar_tuplas_nuevo,words, generar_negativos_pool,generar_distribucion_negativa,cargar_modelo_completo
 #import cupy as cp
 
 def cbow_negativos_cercanos(palabras_a_indice, corpus,neuronas_oculta, n, contexto, epocas, negativos,
@@ -16,17 +16,24 @@ def cbow_negativos_cercanos(palabras_a_indice, corpus,neuronas_oculta, n, contex
         W_prima = np.asarray(W_prima)
 
     # Cada tupla = (target, contexto, negativos)
-    indices_tuplas = generar_tuplas_nuevo_negativos(corpus, palabras_a_indice, contexto)
+    indices_tuplas = generar_tuplas_nuevo(corpus, palabras_a_indice, contexto)
 
-
-   
-
+    distribucion = generar_distribucion_negativa(corpus)
+    vocab_palabras = list(distribucion.keys())
+    vocab_indices = np.array([palabras_a_indice[p] for p in vocab_palabras])
+    probs = np.array([distribucion[p] for p in vocab_palabras])
+    probs = probs / probs.sum()  # Normalizar
 
     for epoca in range(epocas):
 
+        negativos_tuplas = generar_negativos_pool(indices_tuplas, vocab_indices, probs, negativos)
+
+        if epoca == 0:
+            print("Arranco Loco")
+
         E_estrella = 0
 
-        for i, (indice_central, contexto_idx, negativos_idx) in enumerate(indices_tuplas):
+        for i, (indice_central, contexto_idx, negativos_idx) in enumerate(negativos_tuplas):
 
             h = np.mean(W[contexto_idx], axis= 0).reshape(-1, 1)
 
@@ -75,8 +82,8 @@ def cbow_negativos_cercanos(palabras_a_indice, corpus,neuronas_oculta, n, contex
     return W, W_prima
 
 
-#W1, W2, N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca150_neuronas_110.npz")
+W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca100_contexto_5.npz")
 
 
-cbow_negativos_cercanos(palabras_a_indice=palabras_a_indice, corpus=corpus_modificado, n=0.05, contexto=5, epocas=2000, negativos=15,neuronas_oculta=130)
+cbow_negativos_cercanos(palabras_a_indice=palabras_a_indice,W=W1,W_prima=W2, corpus=words, n=0.01, contexto=C, epocas=2000, negativos=15,neuronas_oculta=N)
 
