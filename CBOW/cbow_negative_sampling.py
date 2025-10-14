@@ -82,8 +82,8 @@ def cbow_negativos_cercanos(palabras_a_indice, corpus,neuronas_oculta, n, contex
     return W, W_prima
 
 
-W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca100_contexto_5.npz")
+W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca200_contexto_5.npz")
 
 
-cbow_negativos_cercanos(palabras_a_indice=palabras_a_indice,W=W1,W_prima=W2, corpus=words, n=0.01, contexto=C, epocas=2000, negativos=15,neuronas_oculta=N)
+cbow_negativos_cercanos(palabras_a_indice=palabras_a_indice,W=W1,W_prima=W2, corpus=words, n=0.01, contexto=5, epocas=2000, negativos=15,neuronas_oculta=130)
 

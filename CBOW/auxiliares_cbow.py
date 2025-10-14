@@ -8,21 +8,14 @@ diccionario_onehot = {}
 diccionario_onehot_a_palabra = {}
 diccionario_conteo = {}
 
-with open("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\Evaluacion_Modelos\\corpus_junto1.txt", "r", encoding="utf-8") as f:
+with open("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\Evaluacion_Modelos\\corpus_junto2_todos_los_fuegos.txt", "r", encoding="utf-8") as f:
     words = f.read().splitlines()
 
 
 def generar_negativos_pool(tuplas_base, vocab_indices, probs, k_neg, pool_factor=2):
     print("Empezo tuplas nuevas negativas")
     print("="*40)
-    """
-    Genera negativos usando un pool rotatorio para todas las tuplas de una época.
-    tuplas_base: lista de (palabra_central, contexto)
-    vocab_indices: array de índices de vocabulario
-    probs: array de probabilidades normalizadas
-    k_neg: cantidad de negativos por tupla
-    pool_factor: cuánto más grande que la cantidad total de negativos
-    """
+
     n_tuplas = len(tuplas_base)
     pool_size = n_tuplas * k_neg * pool_factor
     pool_negativos = np.random.choice(vocab_indices, size=pool_size, p=probs, replace=True)
@@ -192,7 +185,7 @@ def unir_palabras_en_contexto(corpus, palabra_objetivo1, palabra_objetivo2, cont
 
     return corpus_modificado
 
-palabras_a_unir = [
+'''palabras_a_unir = [
                     (',','y'),
                     ('.','no'),
                     ('. ','no'),
@@ -218,7 +211,7 @@ corpus_modificado = words.copy()
 
 for palabra1, palabra2 in palabras_a_unir:
     
-    corpus_modificado = unir_palabras_en_contexto(corpus_modificado, palabra1, palabra2, 1)
+    corpus_modificado = unir_palabras_en_contexto(corpus_modificado, palabra1, palabra2, 1)'''
 
 for token in words:
     if token not in palabras_a_indice:
