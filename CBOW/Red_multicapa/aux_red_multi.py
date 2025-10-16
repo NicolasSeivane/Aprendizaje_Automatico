@@ -62,7 +62,7 @@ diccionario_onehot_a_palabra = {}
 diccionario_conteo = {}
 indices_a_embeddings = {}
 
-W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca1300_contexto_5.npz")
+W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca1500_contexto_5.npz")
 
 
 for token in words:
@@ -84,3 +84,59 @@ for token, idx in list(palabras_a_indice.items()):
     one_hot_vector[idx] = 1
     diccionario_onehot[token] = one_hot_vector
     diccionario_onehot_a_palabra[str(one_hot_vector)] = token
+
+def softmax(x):
+    x = np.asarray(x)
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0)
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def predecir(ventana, modelo,topk=5):
+
+    prediccion = modelo.predict(ventana, verbose=0)
+    prediccion = prediccion.flatten() 
+    candidatos = np.argsort(-prediccion)
+    palabra_top1 = indices_a_palabras[candidatos[0]]
+    palabras_topk = [indices_a_palabras[i] for i in candidatos[:topk]]
+
+    return palabra_top1, palabras_topk
+
+
+def predecir_cbow_completo_one_hot(palabras_a_indice, corpus, modelo, indices_a_embeddings, topk=5):
+
+    x_gen,y1,y2_one_hot = generar_ventana(corpus, palabras_a_indice, 10, indices_a_embeddings)
+    aciertos_top1 = 0
+    aciertos_topk = 0
+    palabras_mal_predichas = []
+
+    totales = len(x_gen)
+
+    for i in range(x_gen.shape[0]):
+        palabra_top1, palabras_topk = predecir(x_gen[i].reshape(1, -1), modelo, topk=topk)
+
+        objetivo = np.argmax(y2_one_hot[i].flatten())
+
+        palabra_objetivo = indices_a_palabras[objetivo]
+        # Top-1
+        if palabra_objetivo == palabra_top1:
+            aciertos_top1 += 1
+
+        # Top-k
+        if palabra_objetivo in palabras_topk:
+            aciertos_topk += 1
+        else:
+            palabras_mal_predichas.append(palabra_objetivo)
+
+        # Progreso
+        if i % 100 == 0 and i > 0:
+            progreso = (i / totales) * 100
+            print(f"Progreso: [{progreso:.1f}%] - Top1: {aciertos_top1/totales:.4f}%, Top{topk}: {aciertos_topk/totales:.4f}%", end='\r')
+
+    accuracy_top1 = aciertos_top1 / totales
+    accuracy_topk = aciertos_topk / totales
+
+    print(f"\nResultados completos: Top1={accuracy_top1*100:.2f}%, Top{topk}={accuracy_topk*100:.2f}%")
+
+    return accuracy_top1, accuracy_topk, palabras_mal_predichas
