@@ -1,5 +1,6 @@
 import numpy as np
 import re
+from sklearn.metrics.pairwise import cosine_similarity
 
 def cargar_modelo_completo(nombre_archivo='pesos_cbow_pc2_epoca0.npz'):
     
@@ -48,7 +49,7 @@ def generar_ventana(corpus, palabras_a_indice, contexto, indices_a_embeddings):
     return np.array(X), np.array(Y), np.array(Y2, dtype=np.int32)
 
 
-with open("C:\\Users\\PIA\\Documents\\Aprendizaje_Automatico\\Evaluacion_Modelos\\corpus_junto2.txt", "r", encoding="utf-8") as f:
+with open("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\Evaluacion_Modelos\\corpus_junto2_todos_los_fuegos.txt", "r", encoding="utf-8") as f:
     words = f.read().splitlines()
 
 corpus_modificado = words.copy()
@@ -60,7 +61,7 @@ diccionario_onehot_a_palabra = {}
 diccionario_conteo = {}
 indices_a_embeddings = {}
 
-W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\PIA\\Documents\\Aprendizaje_Automatico\\buenpeso\\pesos_cbow_mejores_epoca400_neurona_oculta130.npz")
+W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca1500_contexto_5.npz")
 if W1 is None:
     print('aca esta el problema')
 
@@ -103,7 +104,8 @@ def tokenizar_por_vocab(texto, vocab, indices = False):
         if not cand_final:
             cand_final = palabras[i]
             if cand_final not in vocab:
-               return print(f'palabra: [{cand_final}] no esta en voabulario') 
+               print(f'palabra: [{cand_final}] no esta en voabulario') 
+               return None
                
             i += 1
 
@@ -112,3 +114,89 @@ def tokenizar_por_vocab(texto, vocab, indices = False):
         else:
             tokens.append(palabras_a_indice[cand_final])
     return tokens
+
+def predecir_cbow_onehot(palabras, modelo, indice_a_palabras, indices_a_embeddings, palabras_a_indice=None, topk=5):
+
+    # usar el vocab proporcionado o la global
+    if palabras_a_indice is None:
+        try:
+            palabras_a_indice = globals().get('palabras_a_indice')
+        except Exception:
+            palabras_a_indice = None
+
+    # tokenizar y obtener índices (tokenizar_por_vocab soporta indices=True)
+    tokens_idx = tokenizar_por_vocab(palabras, palabras_a_indice, indices=True)
+
+    if tokens_idx is None or len(tokens_idx) == 0:
+        return None
+
+    # mantener sólo las últimas 10 palabras; si hay menos, rellenar con la última palabra
+    if len(tokens_idx) < 10:
+        tokens_idx = tokens_idx + [tokens_idx[-1]] * (10 - len(tokens_idx))
+    else:
+        tokens_idx = tokens_idx[-10:]
+
+    # construir la ventana concatenando vectores
+    try:
+        ventana = np.concatenate([indices_a_embeddings[idx] for idx in tokens_idx]).flatten()
+    except Exception as e:
+        print(f"Error al construir la ventana de entrada: {e}")
+        return None
+
+    # predecir (se asume que el modelo devuelve probabilidades)
+    pred = modelo.predict(ventana.reshape(1, -1), verbose=0)
+    probs = np.asarray(pred).flatten()
+
+    # obtener top-k
+    candidatos = np.argsort(-probs)
+    topk_indices = candidatos[:topk]
+    top1 = np.random.choice(topk_indices)
+    palabra = indice_a_palabras[top1]
+    return palabra
+
+def predecir_cbow_embedding(palabras, modelo, indice_a_palabras, W, palabras_a_indice=None, topk=5):
+
+    if palabras_a_indice is None:
+        try:
+            palabras_a_indice = globals().get('palabras_a_indice')
+        except Exception:
+            palabras_a_indice = None
+
+    # tokenizar y obtener índices
+    tokens_idx = tokenizar_por_vocab(palabras, palabras_a_indice, indices=True)
+
+    if not tokens_idx:
+        return None
+
+    # mantener sólo las últimas 10 palabras; si hay menos, rellenar
+    if len(tokens_idx) < 10:
+        tokens_idx = tokens_idx + [tokens_idx[-1]] * (10 - len(tokens_idx))
+    else:
+        tokens_idx = tokens_idx[-10:]
+
+    # concatenar embeddings directamente desde W
+    try:
+        ventana = np.concatenate([W[idx] for idx in tokens_idx]).flatten()
+    except Exception as e:
+        print(f"Error al construir la ventana de entrada: {e}")
+        return None
+
+    # predecir embedding
+    try:
+        pred_emb = modelo.predict(ventana.reshape(1, -1), verbose=0)
+        pred_emb = np.asarray(pred_emb).flatten()
+    except Exception as e:
+        print(f"Error al predecir el embedding: {e}")
+        return None
+
+    # calcular similitudes con todos los embeddings
+    sims = cosine_similarity(pred_emb.reshape(1, -1), W)[0]
+
+    # top-k índices más similares
+    topk_idx = np.argsort(-sims)[:topk]
+
+    # elegir una palabra aleatoria entre las top-k
+    top1 = np.random.choice(topk_idx)
+    palabra_predicha = indice_a_palabras[top1]
+
+    return palabra_predicha
