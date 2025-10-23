@@ -1,6 +1,17 @@
 import numpy as np
 import re
 from sklearn.metrics.pairwise import cosine_similarity
+import tensorflow as tf
+import random
+import os
+
+
+seed = 42
+os.environ['PYTHONHASHSEED'] = str(seed)
+os.environ['TF_DETERMINISTIC_OPS'] = '1'
+tf.random.set_seed(seed)
+np.random.seed(seed)
+random.seed(seed)
 
 def cargar_modelo_completo(nombre_archivo='pesos_cbow_pc2_epoca0.npz'):
     
@@ -22,12 +33,17 @@ def cargar_modelo_completo(nombre_archivo='pesos_cbow_pc2_epoca0.npz'):
         print(f"Error: No se encontró el archivo '{nombre_archivo}'.")
         return None, None, None, None, None
     
-def generar_ventana(corpus, palabras_a_indice, contexto, indices_a_embeddings):
+
+
+W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca1500_contexto_5.npz")
+if W1 is None:
+    print('aca esta el problema')
+
+def generar_ventana(corpus, palabras_a_indice, contexto, W1):
     indices = range(contexto, len(corpus))
     indices_contexto = range(-contexto, 0)
 
     contexto_a_central = {}
-    indice_a_palabra = {v: k for k, v in palabras_a_indice.items()}
     X = []
     Y = []
     Y2 = []
@@ -42,9 +58,9 @@ def generar_ventana(corpus, palabras_a_indice, contexto, indices_a_embeddings):
         else:
             contexto_a_central[contexto_actual] = palabra_central
         
-        ventana = np.concatenate([indices_a_embeddings[idx] for idx in contexto_actual], axis=0)
+        ventana = np.concatenate([W1[idx] for idx in contexto_actual], axis=0)
         X.append(ventana.flatten())          # Aplanamos para que quede 1D
-        Y.append(indices_a_embeddings[palabra_central])
+        Y.append(W1[palabra_central].flatten())
         Y2.append(palabra_central)
     return np.array(X), np.array(Y), np.array(Y2, dtype=np.int32)
 
@@ -61,9 +77,7 @@ diccionario_onehot_a_palabra = {}
 diccionario_conteo = {}
 indices_a_embeddings = {}
 
-W1, W2,N, C, eta = cargar_modelo_completo("C:\\Users\\User\\Documents\\GitHub\\Aprendizaje_Automatico\\pesos_cbow_neg_epoca1500_contexto_5.npz")
-if W1 is None:
-    print('aca esta el problema')
+
 
 for token in words:
     if token not in palabras_a_indice:
@@ -137,11 +151,13 @@ def predecir_cbow_onehot(palabras, modelo, indice_a_palabras, indices_a_embeddin
     topk_indices = candidatos[:topk]
     top1 = np.random.choice(topk_indices)
     palabra = indice_a_palabras[top1]
+    if topk == 1:
+        top1 = topk_indices[0]
+        palabra = indice_a_palabras[top1]
+        
     return palabra
 
 def predecir_cbow_embedding(palabras, modelo, indice_a_palabras, W, palabras_a_indice, topk=5):
-
-    palabras_a_indice = globals().get('palabras_a_indice')
 
     tokens_idx = tokenizar_por_vocab(palabras, palabras_a_indice, indices=True)
 
@@ -153,16 +169,21 @@ def predecir_cbow_embedding(palabras, modelo, indice_a_palabras, W, palabras_a_i
     else:
         tokens_idx = tokens_idx[-10:]
 
+    W1_min, W1_max = W.min(), W.max()
     ventana = np.concatenate([W[idx] for idx in tokens_idx]).flatten()
+    ventana = (2 * ((ventana - W1_min) / (W1_max - W1_min)) - 1).flatten()
 
-    pred_emb = modelo.predict(ventana.reshape(1, -1), verbose=0)
+    pred_emb = modelo.predict(ventana.reshape(1, -1), verbose=0, batch_size=1)
     pred_emb = np.asarray(pred_emb).flatten()
 
     sims = cosine_similarity(pred_emb.reshape(1, -1), W)[0]
-
     topk_idx = np.argsort(-sims)[:topk]
 
-    top1 = np.random.choice(topk_idx)
+    if topk == 1:
+        top1 = topk_idx[0]
+    else:
+        top1 = np.random.choice(topk_idx)
+
     palabra_predicha = indice_a_palabras[top1]
 
     return palabra_predicha
