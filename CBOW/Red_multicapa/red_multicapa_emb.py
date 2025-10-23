@@ -26,25 +26,37 @@ else:
 
 x_gen,y1,y2_one_hot =generar_ventana(corpus_modificado, palabras_a_indice, 10, indices_a_embeddings)
 
+print(x_gen.shape)
+print(y1.shape)
+print(y2_one_hot[1])
 
 W1_min, W1_max = W1.min(), W1.max()
 
 x_escalado = 2 * ((x_gen - W1_min) / (W1_max - W1_min)) - 1
 y_escalado = 2 * ((y1 - W1_min) / (W1_max - W1_min)) - 1
 
+print(x_escalado.max(), x_escalado.min())
+print(y_escalado.max(), y_escalado.min())
 
 entradas = x_gen.shape[1]
+print(entradas)
 salidas = W1.shape[1]
+print(salidas)
 
 inputs = keras.Input(shape=(entradas,))
 
-x = layers.Dense(1024, activation='gelu')(inputs)
+#x = layers.Dense(3000, activation='gelu')(inputs)
+x = layers.Dense(3500, activation='gelu')(inputs)
 
-x = layers.Dense(512, activation='gelu')(x)
+x = layers.Dense(2700, activation='gelu')(inputs)
 
-x = layers.Dense(512, activation='gelu')(x)
+x = layers.Dense(1000, activation='gelu')(x)
+
+x = layers.Dense(500, activation='gelu')(x)
 
 x = layers.Dense(300, activation='gelu')(x)
+
+x = layers.Dense(200, activation='gelu')(x)
 
 
 outputs = layers.Dense(salidas, activation='tanh')(x)
@@ -58,25 +70,25 @@ multicapa_one_hot = keras.Model(inputs, outputs)
 from tensorflow.keras.callbacks import EarlyStopping
 
 
-multicapa_one_hot.compile(loss='mae', optimizer=keras.optimizers.Adam(1e-3), metrics=['accuracy'])
+multicapa_one_hot.compile(loss='mae', optimizer=keras.optimizers.Adam(0.0001), metrics=['mse', 'mae', 'accuracy'])
 
 multicapa_one_hot.summary()
 
 
 
 early_stop = EarlyStopping(
-    monitor='val_accuracy',
+    monitor='val_loss',
     patience=20,
     restore_best_weights=True
 )
 
-epocas = [30,30,30,30,30,30,30,30,30,30,30]
+epocas = [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100]
 
 split = int(0.8 * len(x_gen))
-X_train_sub = x_gen[:split]
-y_train_sub = y2_one_hot[:split]
-X_val = x_gen[split:]
-y_val = y2_one_hot[split:]
+X_train_sub = x_escalado[:split]
+y_train_sub = y_escalado[:split]
+X_val = x_escalado[split:]
+y_val = y_escalado[split:]
 
 
 epocas_acumuladas = 0
@@ -92,19 +104,16 @@ for i,epoca in enumerate(epocas):
     
     epocas_acumuladas += epoca
 
-    results = multicapa_one_hot.evaluate(x_gen, y2_one_hot, verbose=0)
+    results = multicapa_one_hot.evaluate(x_escalado, y_escalado, verbose=0)
     results2 = multicapa_one_hot.evaluate(X_val, y_val, verbose=0)
     print("Loss:", results[0], 'Loss Validation_data:', results2[0])
-    print("Accuracy (top-1):", results[1], 'Accuracy (top-1):', results2[1])
+    print("Loss :", results[1], 'Loss (val):', results2[1])
 
     # Guardar solo los pesos (opcional)
     np.savez(f'multicapa_emb_epoca{epocas_acumuladas}.npz', *multicapa_one_hot.get_weights())
     
     # Guardar modelo completo
-    multicapa_one_hot.save(f'multicapa_emb_model_epoca{epocas_acumuladas}.keras')
-
-    if results2[1] > 0.9:
-        break
+    multicapa_one_hot.save(f'multicapa_emb_model_epoca{epocas_acumuladas}.h5')
 
 
 '''with np.load('multicapa_onehot.npz') as data:

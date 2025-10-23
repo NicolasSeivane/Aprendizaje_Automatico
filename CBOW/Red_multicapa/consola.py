@@ -10,7 +10,7 @@ try:
 except Exception:
     PIL_AVAILABLE = False
 
-from aux_red_multi import predecir_cbow_onehot, generar_ventana, palabras_a_indice, indices_a_palabras, indices_a_embeddings
+from aux_red_multi import predecir_cbow_onehot, generar_ventana, palabras_a_indice, indices_a_palabras, indices_a_embeddings, predecir_cbow_embedding,W1
 from tensorflow.keras.models import load_model
 
 MODEL_PATH = r"C:\Users\User\Documents\GitHub\Aprendizaje_Automatico\multicapa_onehot_model_epoca60.keras"
@@ -20,6 +20,7 @@ model = load_model(MODEL_PATH)
 def generar_texto(texto, cantidad, model, indices_a_palabras, indices_a_embeddings, palabras_a_indice=None, topk=5):
     for i in range(cantidad):
         palabra = predecir_cbow_onehot(texto, model, indices_a_palabras, indices_a_embeddings, palabras_a_indice, topk=topk)
+        #palabra = predecir_cbow_embedding(texto, model, indices_a_palabras, W1, palabras_a_indice, topk=5)
         if palabra is None:
             break
         if palabra in [',', '.', '?', ', y', ':', ';']:
