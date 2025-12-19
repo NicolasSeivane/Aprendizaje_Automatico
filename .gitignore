@@ -1,0 +1,23 @@
+# Virtual Environments
+tf_env/
+env/
+venv/
+.env
+.h5
+.keras/
+.npz
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Models (optional: exclude if they are too large for GitHub, but user seems to want them in the repo)
+# models/

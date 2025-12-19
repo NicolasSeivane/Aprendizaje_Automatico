@@ -1,0 +1,191 @@
+import numpy as np
+import re
+from sklearn.metrics.pairwise import cosine_similarity
+import tensorflow as tf
+import random
+import os
+
+
+seed = 42
+os.environ['PYTHONHASHSEED'] = str(seed)
+os.environ['TF_DETERMINISTIC_OPS'] = '1'
+tf.random.set_seed(seed)
+np.random.seed(seed)
+random.seed(seed)
+
+def cargar_modelo_completo(nombre_archivo='pesos_cbow_pc2_epoca0.npz'):
+    
+    try:
+        data = np.load(nombre_archivo)
+
+        W1 = data['W1']
+        W2 = data['W2']
+
+        N = data['N'].item()
+        C = data['C'].item()
+        eta = data['eta'].item()
+
+        print()
+
+        return W1, W2, N, C, eta
+
+    except FileNotFoundError:
+        print(f"Error: No se encontró el archivo '{nombre_archivo}'.")
+        return None, None, None, None, None
+    
+
+
+MODEL_RELATIVE_PATH = os.path.join("..", "models", "pesos_cbow_mejores_epoca1000_neurona_oculta130.npz")
+W1, W2, N, C, eta = cargar_modelo_completo(os.path.abspath(MODEL_RELATIVE_PATH))
+if W1 is None:
+    print('aca esta el problema')
+
+def generar_ventana(corpus, palabras_a_indice, contexto, W1):
+    indices = range(contexto, len(corpus))
+    indices_contexto = range(-contexto, 0)
+
+    contexto_a_central = {}
+    X = []
+    Y = []
+    Y2 = []
+    for i in indices:
+        palabra_central = palabras_a_indice[corpus[i]]
+        contexto_actual = tuple(palabras_a_indice[corpus[i+j]] for j in indices_contexto)
+
+        # Si ya existe el mismo contexto pero con otra palabra central
+        if contexto_actual in contexto_a_central:
+            if contexto_a_central[contexto_actual] != palabra_central:
+                continue
+        else:
+            contexto_a_central[contexto_actual] = palabra_central
+        
+        ventana = np.concatenate([W1[idx] for idx in contexto_actual], axis=0)
+        X.append(ventana.flatten())          # Aplanamos para que quede 1D
+        Y.append(W1[palabra_central].flatten())
+        Y2.append(palabra_central)
+    return np.array(X), np.array(Y), np.array(Y2, dtype=np.int32)
+
+
+CORPUS_PATH = os.path.join("..", "data", "corpus.txt")
+with open(os.path.abspath(CORPUS_PATH), "r", encoding="utf-8") as f:
+    words = f.read().splitlines()
+
+corpus_modificado = words.copy()
+
+palabras_a_indice = {}
+indices_a_palabras = {}
+diccionario_onehot = {}
+diccionario_onehot_a_palabra = {}
+diccionario_conteo = {}
+indices_a_embeddings = {}
+
+
+
+for token in words:
+    if token not in palabras_a_indice:
+        index = len(palabras_a_indice)
+        palabras_a_indice[token] = index
+        indices_a_palabras[index] = token
+        indices_a_embeddings[index] = W1[index].reshape(1,-1)
+        diccionario_conteo[token] = 1 
+    else:
+        diccionario_conteo[token] += 1 
+
+
+cardinal_V = len(palabras_a_indice)
+
+for token, idx in list(palabras_a_indice.items()):
+
+    one_hot_vector = np.zeros(cardinal_V)
+    one_hot_vector[idx] = 1
+    diccionario_onehot[token] = one_hot_vector
+    diccionario_onehot_a_palabra[str(one_hot_vector)] = token
+
+def tokenizar_por_vocab(texto, vocab, indices = False):
+    palabras = texto.lower()
+    palabras = re.findall(r'\w+|[^\w\s]', palabras, flags=re.UNICODE) # tokenización básica por espacios
+    tokens = []
+    i = 0
+    n = len(palabras)
+
+    while i < n:
+        cand_final = None
+        for j in range(n, i, -1):
+            cand = " ".join(palabras[i:j])
+            if cand in vocab:
+                cand_final = cand
+                i = j  
+                break
+        
+        if not cand_final:
+            cand_final = palabras[i]
+            if cand_final not in vocab:
+               print(f'palabra: [{cand_final}] no esta en voabulario') 
+               return None
+               
+            i += 1
+
+        if indices is False:
+            tokens.append(cand_final)
+        else:
+            tokens.append(vocab[cand_final])
+    return tokens
+
+def predecir_cbow_onehot(palabras, modelo, indice_a_palabras, indices_a_embeddings, palabras_a_indice=None, topk=5):
+
+    palabras_a_indice = globals().get('palabras_a_indice')
+
+    tokens_idx = tokenizar_por_vocab(palabras, palabras_a_indice, indices=True)
+
+    if tokens_idx is None or len(tokens_idx) == 0:
+        return None
+
+    if len(tokens_idx) < 10:
+        tokens_idx = tokens_idx + [tokens_idx[-1]] * (10 - len(tokens_idx))
+    else:
+        tokens_idx = tokens_idx[-10:]
+
+    ventana = np.concatenate([indices_a_embeddings[idx] for idx in tokens_idx]).flatten()
+    pred = modelo.predict(ventana.reshape(1, -1), verbose=0)
+    probs = np.asarray(pred).flatten()
+
+    candidatos = np.argsort(-probs)
+    topk_indices = candidatos[:topk]
+    top1 = np.random.choice(topk_indices)
+    palabra = indice_a_palabras[top1]
+    if topk == 1:
+        top1 = topk_indices[0]
+        palabra = indice_a_palabras[top1]
+        
+    return palabra
+
+def predecir_cbow_embedding(palabras, modelo, indice_a_palabras, W, palabras_a_indice, topk=5):
+
+    tokens_idx = tokenizar_por_vocab(palabras, palabras_a_indice, indices=True)
+
+    if not tokens_idx:
+        return None
+
+    if len(tokens_idx) < 10:
+        tokens_idx = tokens_idx + [tokens_idx[-1]] * (10 - len(tokens_idx))
+    else:
+        tokens_idx = tokens_idx[-10:]
+
+    W1_min, W1_max = W.min(), W.max()
+    ventana = np.concatenate([W[idx] for idx in tokens_idx]).flatten()
+    ventana = (2 * ((ventana - W1_min) / (W1_max - W1_min)) - 1).flatten()
+
+    pred_emb = modelo.predict(ventana.reshape(1, -1), verbose=0, batch_size=1)
+    pred_emb = np.asarray(pred_emb).flatten()
+
+    sims = cosine_similarity(pred_emb.reshape(1, -1), W)[0]
+    topk_idx = np.argsort(-sims)[:topk]
+
+    if topk == 1:
+        top1 = topk_idx[0]
+    else:
+        top1 = np.random.choice(topk_idx)
+
+    palabra_predicha = indice_a_palabras[top1]
+
+    return palabra_predicha
